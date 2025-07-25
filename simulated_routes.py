@@ -12,17 +12,17 @@ st.set_page_config(page_title="School Routing App", layout="wide")
 # Load Data Section
 @st.cache_data
 def load_data():
-    # Load road network
+    # Load road network for Troy
     G = ox.graph_from_place("Troy, Michigan, USA", network_type="drive")
 
-    # Load boundary
-    with zipfile.ZipFile("tl_2019_26_place.zip", 'r') as zip_ref:
-        zip_ref.extractall("troy_boundary")
+    # Directly load the extracted Troy city boundary shapefile
     places = gpd.read_file("troy_boundary/tl_2019_26_place.shp").to_crs(epsg=4326)
     troy = places[places["NAME"] == "Troy"]
 
     # Load student centroids
     gdf_students = gpd.read_file("students_near_athens.geojson").to_crs(epsg=4326)
+
+    # Filter students to within Troy city boundary
     gdf_students = gdf_students[gdf_students.within(troy.unary_union)].reset_index(drop=True)
 
     return G, gdf_students, troy

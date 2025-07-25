@@ -1,0 +1,8 @@
+streamlit
+geopandas
+osmnx
+networkx
+shapely
+scikit-learn
+ortools
+xlsxwriter

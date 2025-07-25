@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Animated School Bus & Van Routes</title>
+  <meta charset="utf-8">
+  <style>
+    /* Full‑screen map */
+    #map { height:100vh; width:100%; }
+
+    /* Legend styling */
+    .legend {
+      background: white;
+      padding: 10px;
+      margin: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      border: 1px solid #ccc;
+    }
+    .legend div {
+      margin-bottom: 4px;
+    }
+    .legend span {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+  </style>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVokCuPt4dq2rstJG1ekLkMbY9UnLmiwk"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+  async function initMap() {
+    // 1) Center on the school
+    const center = { lat: 42.5841, lng: -83.1250 };
+    const map = new google.maps.Map(document.getElementById("map"), {
+      zoom: 13,
+      center
+    });
+
+    // 2) Load your JSONs
+    const [ routesResp, studentsResp ] = await Promise.all([
+      fetch("routes_for_google_maps.json"),
+      fetch("student_points_colored.json")
+    ]);
+    const routes   = await routesResp.json();
+    const students = await studentsResp.json();
+
+    // 3) Color palette & assign each vehicle a color
+    const palette = [
+      "#e6194b","#3cb44b","#ffe119","#4363d8","#f58231",
+      "#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe"
+    ];
+    const vehicleColors = {};
+    routes.forEach((r,i) => {
+      vehicleColors[r.vehicle] = palette[i % palette.length];
+    });
+
+    // 4) Draw the school as a red arrow/star
+    new google.maps.Marker({
+      position: center,
+      map,
+      title: "Athens High School",
+      icon: {
+        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+        scale: 7,
+        fillColor: "red",
+        fillOpacity: 1,
+        strokeWeight: 1
+      }
+    });
+
+    // 5) Student pickup DOT‑markers
+    students.forEach(s => {
+      new google.maps.Marker({
+        position: { lat: s.lat, lng: s.lon },
+        map,
+        zIndex: google.maps.Marker.MAX_ZINDEX,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,  // bump to 8 or 10 if you want bigger dots
+          fillColor: vehicleColors[s.vehicle] || "gray",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 1
+        }
+      });
+    });
+
+    // 6) Draw each route + create its animated marker
+    const animMarkers = [];
+    routes.forEach(r => {
+      const coords = r.coordinates.map(pt => ({ lat: pt[0], lng: pt[1] }));
+      const color  = vehicleColors[r.vehicle];
+
+      // a) static route polyline
+      new google.maps.Polyline({
+        path: coords,
+        map,
+        strokeColor: color,
+        strokeOpacity: 0.7,
+        strokeWeight: 4
+      });
+
+      // b) the moving “vehicle” marker
+      const marker = new google.maps.Marker({
+        position: coords[0],
+        map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: color,
+          fillOpacity: 1,
+          strokeWeight: 1
+        }
+      });
+      animMarkers.push({ marker, path: coords });
+    });
+
+    // 7) Animate all vehicles along their paths
+    let frame = 0;
+    function step() {
+      animMarkers.forEach(obj => {
+        const len = obj.path.length;
+        const pos = obj.path[Math.min(frame, len - 1)];
+        obj.marker.setPosition(pos);
+      });
+      frame++;
+      if (frame < Math.max(...animMarkers.map(o => o.path.length))) {
+        requestAnimationFrame(step);
+      }
+    }
+    requestAnimationFrame(step);
+
+    // 8) Build legend (School + Vehicles)
+    const legend = document.createElement("div");
+    legend.classList.add("legend");
+    legend.innerHTML = "<b>Legend</b><br>";
+    legend.innerHTML += `<div><span style="background:red"></span>School</div>`;
+    Object.entries(vehicleColors).forEach(([veh, col]) => {
+      legend.innerHTML += `<div><span style="background:${col}"></span>${veh}</div>`;
+    });
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(legend);
+  }
+
+  // Kick it off
+  initMap();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>School Bus + Van Routes</title>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVokCuPt4dq2rstJG1ekLkMbY9UnLmiwk"></script>
+  <style>
+    #map { height: 100vh; width: 100%; }
+    .legend {
+      background: white;
+      padding: 10px;
+      margin: 10px;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+    }
+    .legend div {
+      margin-bottom: 4px;
+    }
+    .legend span {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    async function initMap() {
+      const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 13,
+        center: { lat: 42.5841, lng: -83.1250 }
+      });
+
+      const colors = ["#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe"];
+      const vehicleColors = {};
+
+      // Red star for school
+      new google.maps.Marker({
+        position: { lat: 42.5841, lng: -83.1250 },
+        map: map,
+        title: "Athens High School",
+        icon: {
+          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: "red",
+          fillOpacity: 1,
+          strokeWeight: 1
+        }
+      });
+
+      // Fetch vehicle routes
+      const routeResp = await fetch("routes_for_google_maps.json");
+      const routeData = await routeResp.json();
+
+      routeData.forEach((route, index) => {
+        const color = colors[index % colors.length];
+        vehicleColors[route.vehicle] = color;
+
+        const path = route.coordinates.map(pt => ({ lat: pt[0], lng: pt[1] }));
+
+        // Draw route polyline
+        new google.maps.Polyline({
+          path: path,
+          geodesic: true,
+          strokeColor: color,
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+          map: map
+        });
+
+        // Stops with hover labels (dot + tooltip)
+        path.forEach((point, i) => {
+          const stopMarker = new google.maps.Marker({
+            position: point,
+            map: map,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 5,
+              fillColor: color,
+              fillOpacity: 1,
+              strokeWeight: 0
+            }
+          });
+
+          const stopTooltip = new google.maps.InfoWindow({
+            content: `${route.vehicle} - Stop ${i}`
+          });
+
+          stopMarker.addListener("mouseover", () => {
+            stopTooltip.open(map, stopMarker);
+          });
+          stopMarker.addListener("mouseout", () => {
+            stopTooltip.close();
+          });
+        });
+      });
+
+      // Add student points
+      const studentResp = await fetch("student_points_colored.json");
+      const studentData = await studentResp.json();
+
+      studentData.forEach(student => {
+        const color = vehicleColors[student.vehicle] || "#888";
+
+        new google.maps.Circle({
+          center: { lat: student.lat, lng: student.lon },
+          radius: 5,
+          fillColor: color,
+          fillOpacity: 0.9,
+          strokeWeight: 0,
+          map: map
+        });
+      });
+
+      // Create legend
+      const legend = document.createElement("div");
+      legend.classList.add("legend");
+      legend.innerHTML = "<b>Legend</b><br>";
+      legend.innerHTML += `<div><span style="background:red"></span>School (Depot)</div>`;
+      for (const [vehicle, color] of Object.entries(vehicleColors)) {
+        legend.innerHTML += `<div><span style="background:${color}"></span>${vehicle}</div>`;
+      }
+      map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(legend);
+    }
+
+    initMap();
+  </script>
+</body>
+</html>

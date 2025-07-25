@@ -9,6 +9,10 @@ from sklearn.cluster import DBSCAN
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")  # For Streamlit compatibility (optional but safe)
+
 
 
 # Set page config
@@ -297,4 +301,38 @@ if run_button:
     # Display in Streamlit
     st.markdown("### 📋 Vehicle Assignments Overview")
     st.plotly_chart(fig_assignment, use_container_width=True)
+
+    # --- BUS STOP CLUSTERING EVALUATION PLOT ---
+    st.markdown("### 🧭 Bus Pick-Up Stops vs Student Locations")
+
+    # Generate the base graph
+    fig, ax = ox.plot_graph(G, show=False, close=False, bgcolor='black', node_size=0)
+
+    # Plot all students as small white dots
+    ax.scatter(gdf_students_sampled.geometry.x, gdf_students_sampled.geometry.y,
+               color='white', s=3, label='Students')
+
+    # Generate color palette for buses
+    colors = plt.cm.tab10.colors if len(bus_routes) <= 10 else plt.cm.nipy_spectral(np.linspace(0, 1, len(bus_routes)))
+
+    # Plot bus stops and routes by color
+    for bus_id, route_info in bus_routes.items():
+        stop_indices = [idx for idx in route_info["route"] if idx != 0]
+        color = colors[bus_id % len(colors)]
+
+        for stop_idx in stop_indices:
+            stop_df_idx = stop_idx - 1
+            stop_geom = gdf_bus_stops.iloc[stop_df_idx].geometry
+            ax.scatter(stop_geom.x, stop_geom.y,
+                       color=color, s=50, label=f'Bus {bus_id} Stops')
+
+    # Clean up duplicate labels in legend
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = dict(zip(labels, handles))
+    ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left', fontsize='small', frameon=False)
+
+    # Add title and push to Streamlit
+    plt.title('Shared Bus Stops Created From Student Clusters', color='white')
+    st.pyplot(fig)
+
 

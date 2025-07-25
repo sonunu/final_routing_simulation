@@ -5,7 +5,7 @@ import numpy as np
 import osmnx as ox
 import networkx as nx
 from shapely.geometry import Point
-import zipfile
+from sklearn.cluster import DBSCAN
 
 # Set page config
 st.set_page_config(page_title="School Routing App", layout="wide")

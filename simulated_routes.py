@@ -35,9 +35,9 @@ def load_data():
     # Filter students to within Troy city boundary
     gdf_students = gdf_students[gdf_students.within(troy.unary_union)].reset_index(drop=True)
 
-    return G, gdf_students, troy
+    return G, gdf_students, troy, gdf_nodes
 
-G, gdf_students, troy = load_data()
+G, gdf_students, troy, gdf_nodes = load_data()
 
 # Get nearest graph node to Athens High School
 school_lat, school_lon = 42.5841, -83.1250

@@ -7,6 +7,8 @@ import networkx as nx
 from shapely.geometry import Point
 from sklearn.cluster import DBSCAN
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+import plotly.figure_factory as ff
+import plotly.graph_objects as go
 
 
 # Set page config
@@ -260,3 +262,39 @@ if run_button:
 
     bus_routes, bus_nodes = solve_vrp(G, gdf_bus_stops, depot_node, bus_fleet, fleet_type='Bus')
     van_routes, van_nodes = solve_vrp(G, gdf_van_stops, depot_node, van_fleet_final, fleet_type='Van')
+
+
+
+    # --- VEHICLE ASSIGNMENT SUMMARY TABLES ---
+    def get_vehicle_assignment_df(vehicle_routes, stops_df, fleet_type="Vehicle", start_id=1):
+        data = []
+        for vehicle_id, route_info in vehicle_routes.items():
+            stop_indices = [idx for idx in route_info["route"] if idx != 0]
+            student_count = 0
+            for idx in stop_indices:
+                stop_df_idx = idx - 1
+                demand_at_stop = stops_df.iloc[stop_df_idx]['demand']
+                student_count += demand_at_stop
+
+            data.append({
+                "Vehicle": f"{fleet_type} {vehicle_id + start_id}",
+                "Students Served": student_count
+            })
+        return pd.DataFrame(data)
+
+    # Generate assignment tables
+    bus_assignment_df = get_vehicle_assignment_df(bus_routes, gdf_bus_stops, fleet_type="Bus", start_id=1)
+    van_assignment_df = get_vehicle_assignment_df(van_routes, gdf_van_stops, fleet_type="Van", start_id=1)
+    assignment_df = pd.concat([bus_assignment_df, van_assignment_df]).reset_index(drop=True)
+
+    # Create Plotly table
+    fig_assignment = ff.create_table(
+        assignment_df,
+        colorscale=[[0, '#cc0000'], [1, '#ffdddd']]  # dark red to light red
+    )
+    fig_assignment.update_layout(title_text="🚍 Vehicle Assignment Summary", title_x=0.5)
+
+    # Display in Streamlit
+    st.markdown("### 📋 Vehicle Assignments Overview")
+    st.plotly_chart(fig_assignment, use_container_width=True)
+

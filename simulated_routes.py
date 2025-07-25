@@ -6,6 +6,8 @@ import osmnx as ox
 import networkx as nx
 from shapely.geometry import Point
 from sklearn.cluster import DBSCAN
+from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+
 
 # Set page config
 st.set_page_config(page_title="School Routing App", layout="wide")

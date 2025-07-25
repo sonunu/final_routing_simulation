@@ -329,7 +329,7 @@ if run_button:
     # Clean up duplicate labels in legend
     handles, labels = ax.get_legend_handles_labels()
     unique_labels = dict(zip(labels, handles))
-    ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left', fontsize='small', frameon=False)
+    ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left', fontsize='small', frameon=True, facecolor='white', labelcolor='black')
 
     # Add title and push to Streamlit
     plt.title('Shared Bus Stops Created From Student Clusters', color='white')
@@ -411,10 +411,62 @@ if run_button:
     # Handle duplicate legend entries
     handles, labels = ax.get_legend_handles_labels()
     unique_labels = dict(zip(labels, handles))
-    ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left', fontsize='small', frameon=False)
+    ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left', fontsize='small', frameon=True, facecolor='white', labelcolor='black')
 
     plt.title('Bus + Van Stops per Vehicle', color='white')
     st.pyplot(fig)
+
+    # --- DISTANCE & TIME SUMMARY TABLE ---
+
+    def compute_distance_time(vehicle_routes, all_nodes, G, vehicle_type, start_id=1, average_speed_kmph=30):
+        summary_rows = []
+        meters_per_km = 1000
+
+        for vehicle_id, route_info in vehicle_routes.items():
+            route = route_info["route"]
+            route_osmids = [all_nodes[idx] for idx in route]
+
+            total_distance_m = 0
+
+            for u, v in zip(route_osmids[:-1], route_osmids[1:]):
+                try:
+                    length = nx.shortest_path_length(G, u, v, weight='length')
+                    total_distance_m += length
+                except:
+                    continue  # Skip disconnected pairs
+
+            total_distance_km = total_distance_m / meters_per_km
+            total_time_minutes = (total_distance_km / average_speed_kmph) * 60
+
+            summary_rows.append({
+                'Vehicle': f"{vehicle_type} {vehicle_id + start_id}",
+                'Type': vehicle_type,
+                'Distance (km)': round(total_distance_km, 2),
+                'Time (min)': round(total_time_minutes, 1)
+            })
+
+        return summary_rows
+
+    # Compute summary for buses and vans
+    bus_summary = compute_distance_time(bus_routes, bus_nodes, G, vehicle_type="Bus")
+    van_summary = compute_distance_time(van_routes, van_nodes, G, vehicle_type="Van", start_id=1)
+
+    # Combine and sort
+    summary_df = pd.DataFrame(bus_summary + van_summary)
+    summary_df_sorted = summary_df.sort_values(by="Vehicle").reset_index(drop=True)
+
+    # Create Plotly table
+    fig_summary = ff.create_table(
+        summary_df_sorted,
+        colorscale=[[0, '#cc0000'], [1, '#ffdddd']]  # red theme
+    )
+
+    fig_summary.update_layout(title_text="📏 Vehicle Route Distance & Time Summary", title_x=0.5)
+
+    # Display in Streamlit
+    st.markdown("### ⏱️ Distance and Time for Each Route")
+    st.plotly_chart(fig_summary, use_container_width=True)
+
 
 
 

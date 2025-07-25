@@ -121,3 +121,71 @@ if run_button:
     st.write(f"**Total Bus Stops Created:** {len(gdf_bus_stops)}")
     st.write(f"**Total Students Assigned to Buses:** {bus_assigned_count} / {total_bus_capacity}")
 
+    # --- VAN ASSIGNMENT ---
+    # Identify leftover students
+    remaining_students = gdf_students_sampled[~gdf_students_sampled.index.isin(bus_assigned_students)].reset_index(drop=True)
+    st.markdown("### 🚐 Van Routing Summary")
+    st.write(f"**Remaining Students for Vans:** {len(remaining_students)}")
+
+    # DBSCAN for vans (small radius to allow occasional shared stops)
+    van_radius_meters = van_radius
+    coords_van = np.array(list(zip(remaining_students.geometry.y, remaining_students.geometry.x)))
+    db_van = DBSCAN(eps=van_radius_meters / 111320, min_samples=2, metric='euclidean').fit(coords_van)
+
+    remaining_students['van_cluster'] = db_van.labels_
+
+    van_pickups = []
+    van_assigned_count = 0
+
+    # Original van fleet
+    original_van_fleet = [int(x.strip()) for x in van_capacities.split(',')]
+    van_capacity = max(original_van_fleet) if original_van_fleet else 10  # fallback capacity
+    van_fleet_final = list(original_van_fleet)  # This will be expanded if needed
+
+    # Build van stops
+    for idx, row in remaining_students.iterrows():
+        if row['van_cluster'] == -1:
+            # Door-to-door pickup (isolated student)
+            geom = row.geometry
+            nearest_node = ox.distance.nearest_nodes(G, geom.x, geom.y)
+            van_pickups.append({
+                'students': [idx],
+                'geometry': geom,
+                'demand': 1
+            })
+            van_assigned_count += 1
+        else:
+            # Small shared stop
+            group = remaining_students[remaining_students['van_cluster'] == row['van_cluster']]
+            if group.index[0] != idx:
+                continue  # Prevent duplicate stop creation for the same cluster
+
+            centroid = Point(group.geometry.x.mean(), group.geometry.y.mean())
+            nearest_node = ox.distance.nearest_nodes(G, centroid.x, centroid.y)
+            x = G.nodes[nearest_node]['x']
+            y = G.nodes[nearest_node]['y']
+            geom = Point(x, y)
+            demand = len(group.index)
+
+            for student_idx in group.index:
+                van_pickups.append({
+                    'students': [student_idx],
+                    'geometry': geom,
+                    'demand': 1  # Keep demand per student for vans (simplify routing)
+                })
+                van_assigned_count += 1
+
+    # Auto-expand van fleet if necessary
+    total_van_demand = sum([stop['demand'] for stop in van_pickups])
+    while total_van_demand > sum(van_fleet_final):
+        van_fleet_final.append(van_capacity)
+
+    st.write(f"**Total Van Stops Created:** {len(van_pickups)}")
+    st.write(f"**Total Students Assigned to Vans:** {total_van_demand}")
+    st.write(f"**Van Fleet After Expansion:** {van_fleet_final}")
+
+    # Save stops for vans
+    gdf_van_stops = gpd.GeoDataFrame(van_pickups, crs=remaining_students.crs)
+    gdf_van_stops['osmid'] = gdf_van_stops.geometry.apply(lambda pt: ox.distance.nearest_nodes(G, pt.x, pt.y))
+
+

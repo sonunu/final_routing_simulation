@@ -248,8 +248,12 @@ if run_button:
                 route.append(manager.IndexToNode(index))  # end at depot
                 vehicle_routes[vehicle_id] = {"route": route}
 
-        st.write(f"✅ **{fleet_type} VRP Solved:** {len(vehicle_routes)} {fleet_type.lower()}(s) routed")
+            st.success(f"✅ **{fleet_type} VRP Solved:** {len(vehicle_routes)} {fleet_type.lower()}(s) routed")
+        else:
+            st.error(f"⚠️ {fleet_type} VRP could not be solved within time limit.")
+
         return vehicle_routes, all_nodes
+
 
     # Solve separately
     st.markdown("### 🛣️ Route Optimization with OR-Tools")

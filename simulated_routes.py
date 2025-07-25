@@ -335,4 +335,45 @@ if run_button:
     plt.title('Shared Bus Stops Created From Student Clusters', color='white')
     st.pyplot(fig)
 
+    # --- HELPER FUNCTION: STOP DETAIL TABLES ---
+    def get_stop_details_df(vehicle_routes, all_nodes, stops_df, vehicle_type="Vehicle", start_id=1):
+        rows = []
+        for vehicle_id, route_info in vehicle_routes.items():
+            route = route_info["route"]
+            stop_indices = [idx for idx in route if idx != 0]
+            for stop_order, stop_idx in enumerate(stop_indices, start=1):
+                stop_df_idx = stop_idx - 1
+                stop_osmid = all_nodes[stop_idx]
+                demand = stops_df.iloc[stop_df_idx]['demand']
+                rows.append({
+                    "Vehicle": f"{vehicle_type} {vehicle_id + start_id}",
+                    "Stop Order": stop_order,
+                    "Stop Node": stop_osmid,
+                    "Students at Stop": demand
+                })
+        return pd.DataFrame(rows)
+
+    # --- CREATE BUS + VAN STOP DETAIL TABLES ---
+    bus_stop_details_df = get_stop_details_df(bus_routes, bus_nodes, gdf_bus_stops, vehicle_type="Bus", start_id=1)
+    van_stop_details_df = get_stop_details_df(van_routes, van_nodes, gdf_van_stops, vehicle_type="Van", start_id=1)
+
+    # --- PLOTLY TABLE: BUS STOP DETAILS ---
+    fig_bus_stops = ff.create_table(
+        bus_stop_details_df,
+        colorscale=[[0, '#cc0000'], [1, '#ffdddd']]
+    )
+    fig_bus_stops.update_layout(title_text="🚌 Bus Stop Details", title_x=0.5)
+    st.markdown("### 🚌 Bus Stop Details")
+    st.plotly_chart(fig_bus_stops, use_container_width=True)
+
+    # --- PLOTLY TABLE: VAN STOP DETAILS ---
+    fig_van_stops = ff.create_table(
+        van_stop_details_df,
+        colorscale=[[0, '#cc0000'], [1, '#ffdddd']]
+    )
+    fig_van_stops.update_layout(title_text="🚐 Van Stop Details", title_x=0.5)
+    st.markdown("### 🚐 Van Stop Details")
+    st.plotly_chart(fig_van_stops, use_container_width=True)
+
+
 

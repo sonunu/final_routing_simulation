@@ -23,6 +23,7 @@ st.set_page_config(page_title="School Routing App", layout="wide")
 def load_data():
     # Load road network for Troy
     G = ox.graph_from_place("Troy, Michigan, USA", network_type="drive")
+    gdf_nodes = ox.graph_to_gdfs(G, nodes=True, edges=False)
 
     # Directly load the extracted Troy city boundary shapefile
     places = gpd.read_file("tl_2019_26_place.shp").to_crs(epsg=4326)
@@ -523,6 +524,96 @@ if run_button:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+
+    # --- PLOTLY MAP: PER VEHICLE STOP LOCATIONS WITH DROPDOWN ---
+
+    st.markdown("### 🗺️ Interactive Map of Bus & Van Stops")
+
+    # Sort by stop order
+    per_stop_df_sorted = per_stop_df.sort_values(by=["Vehicle", "Stop Order"])
+
+    # Create figure
+    fig = go.Figure()
+    visibility_all = []
+    visibility_buses = []
+    visibility_vans = []
+
+    # Plot each vehicle’s stop sequence
+    for vehicle in per_stop_df_sorted['Vehicle'].unique():
+        vehicle_df = per_stop_df_sorted[per_stop_df_sorted['Vehicle'] == vehicle]
+        vehicle_type = vehicle_df['Type'].iloc[0]
+
+        fig.add_trace(go.Scattermapbox(
+            lat=vehicle_df["Latitude"],
+            lon=vehicle_df["Longitude"],
+            mode="markers+text",
+            marker=dict(size=10),
+            text=vehicle_df["Stop Order"].astype(str),
+            name=vehicle,
+            legendgroup=vehicle_type,
+            showlegend=True,
+            textposition="top center",
+            hoverinfo="text",
+            hovertext=[
+                f"{vehicle}<br>"
+                f"Stop Number: {row['Stop Order']}<br>"
+                f"Latitude: {row['Latitude']:.5f}<br>"
+                f"Longitude: {row['Longitude']:.5f}<br>"
+                f"Students Picked Up: {row['Students Picked Up']}"
+                for i, row in vehicle_df.iterrows()
+            ]
+        ))
+
+        visibility_all.append(True)
+        visibility_buses.append(vehicle_type == "Bus")
+        visibility_vans.append(vehicle_type == "Van")
+
+    # Add school as red star
+    fig.add_trace(go.Scattermapbox(
+        lat=[school_lat],
+        lon=[school_lon],
+        mode="markers",
+        marker=dict(size=30, symbol="star", color="red"),
+        name="School",
+        hoverinfo="text",
+        hovertext=["School"],
+        showlegend=True
+    ))
+
+    # Ensure school is visible in all views
+    visibility_all.append(True)
+    visibility_buses.append(True)
+    visibility_vans.append(True)
+
+    # Map style/layout
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=12,
+        mapbox_center={"lat": per_stop_df["Latitude"].mean(), "lon": per_stop_df["Longitude"].mean()},
+        height=800,
+        title="🧭 Bus and Van Pickup Stops by Vehicle",
+    )
+
+    # Add dropdown menu
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                type="dropdown",
+                x=0.01,
+                y=1.05,
+                buttons=[
+                    dict(label="Show All", method="update", args=[{"visible": visibility_all}]),
+                    dict(label="Only Buses", method="update", args=[{"visible": visibility_buses}]),
+                    dict(label="Only Vans", method="update", args=[{"visible": visibility_vans}]),
+                ],
+                direction="down",
+                showactive=True,
+            )
+        ]
+    )
+
+    # Display map
+    st.plotly_chart(fig, use_container_width=True)
 
 
 

@@ -8,3 +8,4 @@ ortools
 pandas
 numpy
 xlsxwriter
+plotly

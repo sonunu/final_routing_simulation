@@ -375,5 +375,47 @@ if run_button:
     st.markdown("### 🚐 Van Stop Details")
     st.plotly_chart(fig_van_stops, use_container_width=True)
 
+    # --- BUS + VAN STOPS PER VEHICLE MAP ---
+    st.markdown("### 🗺️ Bus and Van Stops by Vehicle")
+
+    # Prepare the figure
+    fig, ax = ox.plot_graph(G, show=False, close=False, bgcolor='black', node_size=0)
+
+    # Colormap for vehicles
+    cmap = plt.get_cmap('tab10')
+    colors = [cmap(i % 10) for i in range(len(bus_routes) + len(van_routes))]
+
+    # Plot bus stops
+    for bus_id, route_info in bus_routes.items():
+        stop_indices = [idx for idx in route_info["route"] if idx != 0]
+        color = colors[bus_id]
+
+        for stop_idx in stop_indices:
+            stop_df_idx = stop_idx - 1
+            stop_geom = gdf_bus_stops.iloc[stop_df_idx].geometry
+            ax.scatter(stop_geom.x, stop_geom.y,
+                       color=color, s=50, label=f'Bus {bus_id + 1}')
+
+    # Plot van stops
+    offset = len(bus_routes)
+    for van_id, route_info in van_routes.items():
+        stop_indices = [idx for idx in route_info["route"] if idx != 0]
+        color = colors[offset + van_id]
+
+        for stop_idx in stop_indices:
+            stop_df_idx = stop_idx - 1
+            stop_geom = gdf_van_stops.iloc[stop_df_idx].geometry
+            ax.scatter(stop_geom.x, stop_geom.y,
+                       color=color, s=50, label=f'Van {van_id + 1}')
+
+    # Handle duplicate legend entries
+    handles, labels = ax.get_legend_handles_labels()
+    unique_labels = dict(zip(labels, handles))
+    ax.legend(unique_labels.values(), unique_labels.keys(), loc='upper left', fontsize='small', frameon=False)
+
+    plt.title('Bus + Van Stops per Vehicle', color='white')
+    st.pyplot(fig)
+
+
 
 

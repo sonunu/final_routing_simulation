@@ -61,4 +61,62 @@ st.map(school_df)
 
 if run_button:
     st.success("Routing will be initiated next...")
-    # The next step is to call the routing functions you'll provide
+
+    # Parse fleet and radius
+    bus_fleet = [int(x.strip()) for x in bus_capacities.split(',')]
+    van_fleet = [int(x.strip()) for x in van_capacities.split(',')]
+    bus_radius_meters = bus_radius
+
+    # Total bus capacity
+    total_bus_capacity = sum(bus_fleet)
+    bus_assigned_count = 0
+
+    # Sample students from dataset
+    gdf_students_sampled = gdf_students.sample(n=num_students, random_state=42).reset_index(drop=True)
+
+    # --- BUS CLUSTERING FIRST ---
+    coords_bus = np.array(list(zip(gdf_students_sampled.geometry.y, gdf_students_sampled.geometry.x)))
+    db_bus = DBSCAN(eps=bus_radius_meters / 111320, min_samples=2, metric='euclidean').fit(coords_bus)
+
+    gdf_students_sampled['bus_cluster'] = db_bus.labels_
+
+    bus_pickups = []
+    bus_assigned_students = []
+
+    for label in sorted(gdf_students_sampled['bus_cluster'].unique()):
+        if label == -1:
+            continue  # Skip unclustered students
+
+        group = gdf_students_sampled[gdf_students_sampled['bus_cluster'] == label]
+        group_size = len(group.index)
+
+        if bus_assigned_count + group_size > total_bus_capacity:
+            continue  # Skip this cluster to avoid overloading bus fleet
+
+        # Assign cluster to buses
+        bus_assigned_students.extend(group.index)
+        bus_assigned_count += group_size
+
+        # Create shared stop snapped to nearest intersection
+        centroid = Point(group.geometry.x.mean(), group.geometry.y.mean())
+        nearest_node = ox.distance.nearest_nodes(G, centroid.x, centroid.y)
+        x = G.nodes[nearest_node]['x']
+        y = G.nodes[nearest_node]['y']
+        geom = Point(x, y)
+        demand = group_size
+
+        bus_pickups.append({
+            'students': list(group.index),
+            'geometry': geom,
+            'demand': demand
+        })
+
+    # Save shared stops for buses
+    gdf_bus_stops = gpd.GeoDataFrame(bus_pickups, crs=gdf_students_sampled.crs)
+    gdf_bus_stops['osmid'] = gdf_bus_stops.geometry.apply(lambda pt: ox.distance.nearest_nodes(G, pt.x, pt.y))
+
+    # Display summary stats
+    st.markdown("### 🚌 Bus Routing Summary")
+    st.write(f"**Total Bus Stops Created:** {len(gdf_bus_stops)}")
+    st.write(f"**Total Students Assigned to Buses:** {bus_assigned_count} / {total_bus_capacity}")
+

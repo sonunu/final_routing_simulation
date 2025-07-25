@@ -53,8 +53,11 @@ st.write(f"**Bus Stop Radius:** {bus_radius} meters")
 st.write(f"**Van Grouping Radius:** {van_radius} meters")
 
 # Display school location on map
-school_point = gpd.GeoDataFrame(geometry=[Point(school_lon, school_lat)], crs="EPSG:4326")
-st.map(school_point)
+school_df = pd.DataFrame({
+    'latitude': [school_lat],
+    'longitude': [school_lon]
+})
+st.map(school_df)
 
 if run_button:
     st.success("Routing will be initiated next...")

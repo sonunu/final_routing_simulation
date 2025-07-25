@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")  # For Streamlit compatibility (optional but safe)
-
+import io
 
 
 # Set page config
@@ -466,6 +466,62 @@ if run_button:
     # Display in Streamlit
     st.markdown("### ⏱️ Distance and Time for Each Route")
     st.plotly_chart(fig_summary, use_container_width=True)
+
+    # --- GENERATE PER-STOP ROUTE DATA ---
+    def generate_per_stop_data(vehicle_routes, all_nodes, stops_df, gdf_nodes, vehicle_type, start_id=1):
+        per_stop_rows = []
+
+        for vehicle_id, route_info in vehicle_routes.items():
+            route = route_info["route"]
+            stop_indices = [idx for idx in route if idx != 0]  # skip depot
+
+            stop_order = 1
+            for stop_idx in stop_indices:
+                stop_df_idx = stop_idx - 1  # depot is index 0
+                stop_osmid = all_nodes[stop_idx]
+                demand = stops_df.iloc[stop_df_idx]['demand']
+
+                # Get coordinates
+                point_geom = gdf_nodes.loc[stop_osmid].geometry
+                lat = point_geom.y
+                lon = point_geom.x
+
+                per_stop_rows.append({
+                    'Vehicle': f"{vehicle_type} {vehicle_id + start_id}",
+                    'Type': vehicle_type,
+                    'Stop Order': stop_order,
+                    'Stop Node': stop_osmid,
+                    'Students Picked Up': demand,
+                    'Latitude': lat,
+                    'Longitude': lon
+                })
+
+                stop_order += 1
+
+        return per_stop_rows
+
+    # Build for buses and vans
+    bus_per_stop = generate_per_stop_data(bus_routes, bus_nodes, gdf_bus_stops, gdf_nodes, vehicle_type="Bus")
+    van_per_stop = generate_per_stop_data(van_routes, van_nodes, gdf_van_stops, gdf_nodes, vehicle_type="Van")
+    per_stop_df = pd.DataFrame(bus_per_stop + van_per_stop)
+
+    # --- EXCEL DOWNLOAD BUTTON ---
+    st.markdown("### 📥 Download Route Data")
+
+    # Convert DataFrame to Excel file in memory
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        per_stop_df.to_excel(writer, index=False, sheet_name='Route Details')
+        writer.save()
+        excel_data = excel_buffer.getvalue()
+
+    # Download button
+    st.download_button(
+        label="Download Excel File with Route Details",
+        data=excel_data,
+        file_name="per_stop_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 

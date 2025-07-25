@@ -1,6 +1,7 @@
 import streamlit as st
 import geopandas as gpd
 import pandas as pd
+import numpy as np
 import osmnx as ox
 import networkx as nx
 from shapely.geometry import Point

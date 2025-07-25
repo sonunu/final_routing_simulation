@@ -33,7 +33,7 @@ def load_data():
     gdf_students = gpd.read_file("students_near_athens.geojson").to_crs(epsg=4326)
 
     # Filter students to within Troy city boundary
-    gdf_students = gdf_students[gdf_students.within(troy.unary_union)].reset_index(drop=True)
+    gdf_students = gdf_students[gdf_students.within(troy.union_all())].reset_index(drop=True)
 
     return G, gdf_students, troy, gdf_nodes
 
@@ -513,7 +513,7 @@ if run_button:
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
         per_stop_df.to_excel(writer, index=False, sheet_name='Route Details')
-        writer.save()
+        
         excel_data = excel_buffer.getvalue()
 
     # Download button

@@ -3,9 +3,11 @@ geopandas
 osmnx
 networkx
 shapely
+matplotlib
 scikit-learn
 ortools
 pandas
 numpy
 xlsxwriter
 plotly
+

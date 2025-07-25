@@ -28,7 +28,7 @@ def load_data():
     G = ox.graph_from_place("Troy, Michigan, USA", network_type="drive")
     gdf_nodes = ox.graph_to_gdfs(G, nodes=True, edges=False)
     gdf_students = gpd.read_file("students_near_athens.geojson").to_crs(epsg=4326)
-    boundary = gpd.read_file("troy_boundary/tl_2019_26_place.shp")
+    boundary = gpd.read_file("tl_2019_26_place.shp")
     boundary = boundary[boundary.NAME == "Troy"].to_crs(epsg=4326)
     gdf_students = gdf_students[gdf_students.within(boundary.unary_union)]
     return G, gdf_nodes, gdf_students

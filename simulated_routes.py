@@ -188,4 +188,69 @@ if run_button:
     gdf_van_stops = gpd.GeoDataFrame(van_pickups, crs=remaining_students.crs)
     gdf_van_stops['osmid'] = gdf_van_stops.geometry.apply(lambda pt: ox.distance.nearest_nodes(G, pt.x, pt.y))
 
+    # --- OR-Tools VRP Solver ---
+    def solve_vrp(G, stops_df, depot_node, fleet_capacities, fleet_type='Vehicle'):
+        stop_nodes = list(stops_df["osmid"])
+        all_nodes = [depot_node] + stop_nodes
 
+        num_locations = len(all_nodes)
+        distance_matrix = np.zeros((num_locations, num_locations))
+        for i in range(num_locations):
+            for j in range(num_locations):
+                if i == j:
+                    distance_matrix[i][j] = 0
+                else:
+                    try:
+                        length = nx.shortest_path_length(G, all_nodes[i], all_nodes[j], weight='length')
+                        distance_matrix[i][j] = length
+                    except:
+                        distance_matrix[i][j] = 1e6  # unreachable penalty
+
+        demands = [0] + list(stops_df["demand"])
+
+        manager = pywrapcp.RoutingIndexManager(num_locations, len(fleet_capacities), 0)
+        routing = pywrapcp.RoutingModel(manager)
+
+        def distance_callback(from_index, to_index):
+            from_node = manager.IndexToNode(from_index)
+            to_node = manager.IndexToNode(to_index)
+            return int(distance_matrix[from_node][to_node])
+
+        transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+        routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+        def demand_callback(from_index):
+            from_node = manager.IndexToNode(from_index)
+            return demands[from_node]
+
+        demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+        routing.AddDimensionWithVehicleCapacity(
+            demand_callback_index, 0, fleet_capacities, True, 'Capacity'
+        )
+
+        search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+        search_parameters.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+        search_parameters.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+        search_parameters.time_limit.seconds = 60
+
+        solution = routing.SolveWithParameters(search_parameters)
+
+        vehicle_routes = {}
+        if solution:
+            for vehicle_id in range(len(fleet_capacities)):
+                index = routing.Start(vehicle_id)
+                route = []
+                while not routing.IsEnd(index):
+                    route.append(manager.IndexToNode(index))
+                    index = solution.Value(routing.NextVar(index))
+                route.append(manager.IndexToNode(index))  # end at depot
+                vehicle_routes[vehicle_id] = {"route": route}
+
+        st.write(f"✅ **{fleet_type} VRP Solved:** {len(vehicle_routes)} {fleet_type.lower()}(s) routed")
+        return vehicle_routes, all_nodes
+
+    # Solve separately
+    st.markdown("### 🛣️ Route Optimization with OR-Tools")
+
+    bus_routes, bus_nodes = solve_vrp(G, gdf_bus_stops, depot_node, bus_fleet, fleet_type='Bus')
+    van_routes, van_nodes = solve_vrp(G, gdf_van_stops, depot_node, van_fleet_final, fleet_type='Van')

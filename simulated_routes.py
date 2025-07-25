@@ -16,7 +16,7 @@ def load_data():
     G = ox.graph_from_place("Troy, Michigan, USA", network_type="drive")
 
     # Directly load the extracted Troy city boundary shapefile
-    places = gpd.read_file("troy_boundary/tl_2019_26_place.shp").to_crs(epsg=4326)
+    places = gpd.read_file("tl_2019_26_place.shp").to_crs(epsg=4326)
     troy = places[places["NAME"] == "Troy"]
 
     # Load student centroids

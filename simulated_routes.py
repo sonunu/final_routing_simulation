@@ -934,109 +934,109 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
                     gdf_students_sampled=st.session_state["gdf_students_sampled"]
                 )
 
+                # === FOLIUM MAP DISPLAY SECTION ===
+                st.header("🗺️ Accurate Route Map")
+
+                # Prompt for school location
+                school_lat = st.session_state.get("school_lat", 42.5841)
+                school_lon = st.session_state.get("school_lon", -83.1250)
+
+                # Load routes and stops
+                try:
+                    with open("routes_for_google_maps.json") as f:
+                        all_routes = json.load(f)
+
+                    with open("vehicle_stop_points.json") as f:
+                        stop_points = json.load(f)
+
+                    # Create folium map centered at the school
+                    m = folium.Map(location=[school_lat, school_lon], zoom_start=13)
+
+                    # Add school marker
+                    folium.Marker(
+                        location=[school_lat, school_lon],
+                        icon=folium.Icon(color='red', icon='star'),
+                        popup="School (Athens HS)"
+                    ).add_to(m)
+
+                    # Assign a unique color to each vehicle
+                    vehicle_colors = {}
+                    available_colors = [
+                        'blue', 'green', 'purple', 'orange', 'cadetblue', 'darkred',
+                        'darkpurple', 'darkblue', 'lightblue', 'pink', 'lightgreen'
+                    ]
+
+                    def get_color(vehicle):
+                        if vehicle not in vehicle_colors:
+                            vehicle_colors[vehicle] = available_colors[len(vehicle_colors) % len(available_colors)]
+                        return vehicle_colors[vehicle]
+
+                    # Draw routes
+                    for route in all_routes:
+                        coords = route["coordinates"]
+                        vehicle = route["vehicle"]
+                        color = get_color(vehicle)
+
+                        folium.PolyLine(
+                            locations=coords,
+                            color=color,
+                            weight=4,
+                            opacity=0.8,
+                            tooltip=vehicle
+                        ).add_to(m)
+
+                    # Add vehicle stop markers
+                    for stop in stop_points:
+                        lat = stop["lat"]
+                        lon = stop["lon"]
+                        vehicle = stop["vehicle"]
+                        stop_order = stop["stop_order"]
+                        color = get_color(vehicle)
+
+                        tooltip = f"{vehicle} - Stop #{stop_order}"
+                        folium.CircleMarker(
+                            location=[lat, lon],
+                            radius=5,
+                            color=color,
+                            fill=True,
+                            fill_color=color,
+                            fill_opacity=0.9,
+                            tooltip=tooltip
+                        ).add_to(m)
+
+                    # Add custom legend
+                    legend_html = """
+                    <div style="
+                        position: fixed; 
+                        bottom: 50px; left: 50px; width: 200px; height: auto; 
+                        z-index:9999; font-size:14px;
+                        background-color:white;
+                        padding: 10px;
+                        border:2px solid grey;
+                        border-radius:8px;
+                    ">
+                    <b>Legend</b><br>
+                    <span style="color:red;">★</span> School<br>
+                    """
+
+                    for vehicle, color in vehicle_colors.items():
+                        legend_html += f'<span style="color:{color};">■</span> {vehicle}<br>'
+
+                    legend_html += "</div>"
+
+                    legend = MacroElement()
+                    legend._template = Template(legend_html)
+                    m.get_root().add_child(legend)
+
+                    # Display map in Streamlit
+                    st_data = st_folium(m, width=900, height=600)
+
+                except FileNotFoundError:
+                    st.warning("❗ Required JSON files not found. Please run route generation first.")
+
     
             else:
                 st.warning("⚠️ Please run the routing first to generate route data.")
 
 
-    # === FOLIUM MAP DISPLAY SECTION ===
-    st.header("🗺️ Accurate Route Map")
-
-    # Prompt for school location
-    school_lat = st.session_state.get("school_lat", 42.5841)
-    school_lon = st.session_state.get("school_lon", -83.1250)
-
-    # Load routes and stops
-    try:
-        with open("routes_for_google_maps.json") as f:
-            all_routes = json.load(f)
-
-        with open("vehicle_stop_points.json") as f:
-            stop_points = json.load(f)
-
-        # Create folium map centered at the school
-        m = folium.Map(location=[school_lat, school_lon], zoom_start=13)
-
-        # Add school marker
-        folium.Marker(
-            location=[school_lat, school_lon],
-            icon=folium.Icon(color='red', icon='star'),
-            popup="School (Athens HS)"
-        ).add_to(m)
-
-        # Assign a unique color to each vehicle
-        vehicle_colors = {}
-        available_colors = [
-            'blue', 'green', 'purple', 'orange', 'cadetblue', 'darkred',
-            'darkpurple', 'darkblue', 'lightblue', 'pink', 'lightgreen'
-        ]
-
-        def get_color(vehicle):
-            if vehicle not in vehicle_colors:
-                vehicle_colors[vehicle] = available_colors[len(vehicle_colors) % len(available_colors)]
-            return vehicle_colors[vehicle]
-
-        # Draw routes
-        for route in all_routes:
-            coords = route["coordinates"]
-            vehicle = route["vehicle"]
-            color = get_color(vehicle)
-
-            folium.PolyLine(
-                locations=coords,
-                color=color,
-                weight=4,
-                opacity=0.8,
-                tooltip=vehicle
-            ).add_to(m)
-
-        # Add vehicle stop markers
-        for stop in stop_points:
-            lat = stop["lat"]
-            lon = stop["lon"]
-            vehicle = stop["vehicle"]
-            stop_order = stop["stop_order"]
-            color = get_color(vehicle)
-
-            tooltip = f"{vehicle} - Stop #{stop_order}"
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=5,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.9,
-                tooltip=tooltip
-            ).add_to(m)
-
-        # Add custom legend
-        legend_html = """
-        <div style="
-            position: fixed; 
-            bottom: 50px; left: 50px; width: 200px; height: auto; 
-            z-index:9999; font-size:14px;
-            background-color:white;
-            padding: 10px;
-            border:2px solid grey;
-            border-radius:8px;
-        ">
-        <b>Legend</b><br>
-        <span style="color:red;">★</span> School<br>
-        """
-
-        for vehicle, color in vehicle_colors.items():
-            legend_html += f'<span style="color:{color};">■</span> {vehicle}<br>'
-
-        legend_html += "</div>"
-
-        legend = MacroElement()
-        legend._template = Template(legend_html)
-        m.get_root().add_child(legend)
-
-        # Display map in Streamlit
-        st_data = st_folium(m, width=900, height=600)
-
-    except FileNotFoundError:
-        st.warning("❗ Required JSON files not found. Please run route generation first.")
-
-    
+  

@@ -737,11 +737,3 @@ if prototype_clicked:
 
     # Display in Streamlit
     components.html(html_video, height=600)
-
-    
-
-if google_maps_clicked:
-    # Google Maps route animation code goes here later
-
-
-

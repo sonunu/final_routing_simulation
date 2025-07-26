@@ -17,3 +17,4 @@ polyline
 folium
 pyogrio
 fiona
+streamlit-folium

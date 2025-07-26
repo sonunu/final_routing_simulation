@@ -16,6 +16,12 @@ import io
 import matplotlib.animation as animation
 # from IPython.display import HTML  # still used to get HTML5 video string
 import streamlit.components.v1 as components
+import os
+import time
+import json
+import requests
+import polyline
+
 
 
 # Set page config
@@ -621,27 +627,30 @@ if run_button:
 
     st.session_state["bus_routes"] = bus_routes
     st.session_state["van_routes"] = van_routes
+    st.session_state["gdf_nodes"] = gdf_nodes
     st.session_state["bus_nodes"] = bus_nodes
     st.session_state["van_nodes"] = van_nodes
-    st.session_state["gdf_nodes"] = gdf_nodes
+    st.session_state["gdf_bus_stops"] = gdf_bus_stops
+    st.session_state["gdf_van_stops"] = gdf_van_stops
+    st.session_state["gdf_students_sampled"] = gdf_students_sampled
 
     st.success("Routing completed!")
 
 
 
-# === Route Animation Section ===
-st.header("🎬 Route Animations")
+# === Route Display Section ===
+st.header("🎬 Route Display")
 
 if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
     col1, col2 = st.columns(2)
 
     with col1:
         prototype_clicked = st.button("🎞️ Generate Prototype Animation")
-        st.caption("Use if you want a quick demo of how the routes will move along their paths! (shorter loading time but less accurate routes)")
+        st.caption("Use if you want a quick demo of how the routes will move along their paths! (simplified route display)")
 
     with col2:
-        google_maps_clicked = st.button("🗺️ Generate Google Maps Animation")
-        st.caption("Use if you want a more professional route display of how the routes will operate! (longer loading time + Google Directions and Google Maps API needed)")
+        google_directions_clicked = st.button("🗺️ Generate Accurate Routes")
+        st.caption("Use if you want a professional display of how the routes will operate! (Google Directions API Key needed)")
 
     # Run animations only when button is clicked
     if prototype_clicked:
@@ -757,8 +766,157 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
         with open("prototype_animation.gif", "rb") as f:
             st.image(f.read())
 
-    if google_maps_clicked:
-        st.info("Google Maps Animation not implemented yet. Coming soon!")
+    # --- 1. Fetch route and summary ---
+    def fetch_directions_path_with_summary(coords, api_key, pause=0.2):
+        path = []
+        total_distance = 0  # meters
+        total_duration = 0  # seconds
 
-else:
-    st.warning("⚠️ Please run the routing first to generate route data.")
+        for i in range(len(coords) - 1):
+            origin = f"{coords[i][0]},{coords[i][1]}"
+            destination = f"{coords[i + 1][0]},{coords[i + 1][1]}"
+            url = (
+                f"https://maps.googleapis.com/maps/api/directions/json"
+                f"?origin={origin}&destination={destination}"
+                f"&mode=driving&key={api_key}"
+            )
+
+            response = requests.get(url)
+            if response.status_code != 200:
+                st.error(f"Request failed: {response.status_code}")
+                continue
+
+            data = response.json()
+            if data['status'] != 'OK':
+                st.warning(f"API Error: {data['status']}")
+                continue
+
+            steps = data['routes'][0]['legs'][0]['steps']
+            for step in steps:
+                segment_poly = step['polyline']['points']
+                segment_coords = polyline.decode(segment_poly)
+                path.extend(segment_coords)
+
+            leg = data['routes'][0]['legs'][0]
+            total_distance += leg['distance']['value']
+            total_duration += leg['duration']['value']
+
+            time.sleep(pause)
+
+        return path, total_distance, total_duration
+
+    # --- 2. Build all route paths and summaries ---
+    def generate_routes_and_summaries(bus_routes, van_routes, gdf_nodes, bus_nodes, van_nodes, api_key):
+        all_routes = []
+        route_summaries = []
+
+        for bus_id, route in bus_routes.items():
+            coords = [(gdf_nodes.loc[bus_nodes[i]].geometry.y, gdf_nodes.loc[bus_nodes[i]].geometry.x) for i in route["route"]]
+            path, dist, dur = fetch_directions_path_with_summary(coords, api_key)
+            all_routes.append({"vehicle": f"Bus {bus_id+1}", "coordinates": path})
+            route_summaries.append({"vehicle": f"Bus {bus_id+1}", "distance_km": round(dist/1000, 2), "duration_min": round(dur/60, 1)})
+
+        for van_id, route in van_routes.items():
+            coords = [(gdf_nodes.loc[van_nodes[i]].geometry.y, gdf_nodes.loc[van_nodes[i]].geometry.x) for i in route["route"]]
+            path, dist, dur = fetch_directions_path_with_summary(coords, api_key)
+            all_routes.append({"vehicle": f"Van {van_id+1}", "coordinates": path})
+            route_summaries.append({"vehicle": f"Van {van_id+1}", "distance_km": round(dist/1000, 2), "duration_min": round(dur/60, 1)})
+
+        return all_routes, route_summaries
+
+    # --- 3. Extract vehicle stop points ---
+    def extract_vehicle_stop_points(bus_routes, van_routes, gdf_nodes, bus_nodes, van_nodes):
+        stop_points = []
+
+        for bus_id, route in bus_routes.items():
+            for i, stop_idx in enumerate(route["route"]):
+                node = bus_nodes[stop_idx]
+                pt = gdf_nodes.loc[node].geometry
+                stop_points.append({"lat": pt.y, "lon": pt.x, "vehicle": f"Bus {bus_id+1}", "stop_order": i})
+
+        for van_id, route in van_routes.items():
+            for i, stop_idx in enumerate(route["route"]):
+                node = van_nodes[stop_idx]
+                pt = gdf_nodes.loc[node].geometry
+                stop_points.append({"lat": pt.y, "lon": pt.x, "vehicle": f"Van {van_id+1}", "stop_order": i})
+
+        return stop_points
+
+    # --- 4. Assign students ---
+    def assign_students_to_vehicles(bus_routes, van_routes, gdf_bus_stops, gdf_van_stops, gdf_students_sampled):
+        assignments = []
+
+        for bus_id, route in bus_routes.items():
+            for stop_idx in route["route"]:
+                if stop_idx == 0: continue
+                stop_df_idx = stop_idx - 1
+                stop = gdf_bus_stops.iloc[stop_df_idx]
+                for student_idx in stop['students']:
+                    pt = gdf_students_sampled.iloc[student_idx].geometry
+                    assignments.append({"lat": pt.y, "lon": pt.x, "vehicle": f"Bus {bus_id+1}"})
+
+        for van_id, route in van_routes.items():
+            for stop_idx in route["route"]:
+                if stop_idx == 0: continue
+                stop_df_idx = stop_idx - 1
+                stop = gdf_van_stops.iloc[stop_df_idx]
+                for student_idx in stop['students']:
+                    pt = gdf_students_sampled.iloc[student_idx].geometry
+                    assignments.append({"lat": pt.y, "lon": pt.x, "vehicle": f"Van {van_id+1}"})
+
+        return assignments
+
+    # --- 5. Save outputs ---
+    def save_outputs(all_routes, route_summaries, student_assignments, stop_points):
+        with open("routes_for_google_maps.json", "w") as f:
+            json.dump(all_routes, f)
+        st.success("✅ Saved routes_for_google_maps.json")
+
+        with open("route_summaries.json", "w") as f:
+            json.dump(route_summaries, f, indent=2)
+        st.success("✅ Saved route_summaries.json")
+
+        with open("student_points.json", "w") as f:
+            json.dump(student_assignments, f)
+        st.success("✅ Saved student_points.json")
+
+        with open("vehicle_stop_points.json", "w") as f:
+            json.dump(stop_points, f)
+        st.success("✅ Saved vehicle_stop_points.json")
+
+    # --- 6. Master controller ---
+    def run_full_export_pipeline(api_key, bus_routes, van_routes, gdf_nodes, bus_nodes, van_nodes,
+                                 gdf_bus_stops, gdf_van_stops, gdf_students_sampled):
+        all_routes, route_summaries = generate_routes_and_summaries(bus_routes, van_routes, gdf_nodes, bus_nodes, van_nodes, api_key)
+        student_assignments = assign_students_to_vehicles(bus_routes, van_routes, gdf_bus_stops, gdf_van_stops, gdf_students_sampled)
+        stop_points = extract_vehicle_stop_points(bus_routes, van_routes, gdf_nodes, bus_nodes, van_nodes)
+        save_outputs(all_routes, route_summaries, student_assignments, stop_points)
+
+    
+
+    #--- Streamlit App Trigger ---
+    if google_directions_clicked:
+        st.markdown("### 🔑 Google Directions API Key")
+        google_api_key = st.text_input("Type Your API Key Here:", type="password")
+        
+        if not google_api_key:
+            st.warning("⚠️ Please enter your Google Directions API key to proceed.")
+        else:
+            st.session_state["google_api_key"] = google_api_key
+            api_key = st.session_state.get("google_api_key")
+            st.success("Google API key accepted. Generating accurate routes...")
+
+            run_full_export_pipeline(
+                api_key=google_api_key,
+                bus_routes=bus_routes,
+                van_routes=van_routes,
+                gdf_nodes=gdf_nodes,
+                bus_nodes=bus_nodes,
+                van_nodes=van_nodes,
+                gdf_bus_stops=gdf_bus_stops,
+                gdf_van_stops=gdf_van_stops,
+                gdf_students_sampled=gdf_students_sampled
+            )
+    
+    else:
+        st.warning("⚠️ Please run the routing first to generate route data.")

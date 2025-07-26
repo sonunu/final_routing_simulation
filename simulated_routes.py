@@ -630,7 +630,6 @@ if run_button:
 
 
 # === Route Animation Section ===
-st.markdown("## 📽️ Route Animations")
 st.header("🎬 Route Animations")
 
 if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:

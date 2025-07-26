@@ -908,15 +908,16 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
 
             run_full_export_pipeline(
                 api_key=google_api_key,
-                bus_routes=bus_routes,
-                van_routes=van_routes,
-                gdf_nodes=gdf_nodes,
-                bus_nodes=bus_nodes,
-                van_nodes=van_nodes,
-                gdf_bus_stops=gdf_bus_stops,
-                gdf_van_stops=gdf_van_stops,
-                gdf_students_sampled=gdf_students_sampled
+                bus_routes=st.session_state["bus_routes"],
+                van_routes=st.session_state["van_routes"],
+                gdf_nodes=st.session_state["gdf_nodes"],
+                bus_nodes=st.session_state["bus_nodes"],
+                van_nodes=st.session_state["van_nodes"],
+                gdf_bus_stops=st.session_state["gdf_bus_stops"],
+                gdf_van_stops=st.session_state["gdf_van_stops"],
+                gdf_students_sampled=st.session_state["gdf_students_sampled"]
             )
+
     
     else:
         st.warning("⚠️ Please run the routing first to generate route data.")

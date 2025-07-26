@@ -12,3 +12,5 @@ xlsxwriter
 plotly
 ipython
 ffmpeg-python
+requests
+polyline

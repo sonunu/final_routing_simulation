@@ -11,3 +11,4 @@ numpy
 xlsxwriter
 plotly
 ipython
+ffmpeg-python

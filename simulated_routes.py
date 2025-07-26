@@ -649,7 +649,12 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
         st.caption("Use if you want a quick demo of how the routes will move along their paths! (simplified route display)")
 
     with col2:
-        google_directions_clicked = st.button("🗺️ Generate Accurate Routes")
+        if "google_directions_clicked" not in st.session_state:
+            st.session_state["google_directions_clicked"] = False
+
+        if st.button("🗺️ Generate Accurate Routes"):
+            st.session_state["google_directions_clicked"] = True
+
         st.caption("Use if you want a professional display of how the routes will operate! (Google Directions API Key needed)")
 
     # Run animations only when button is clicked
@@ -895,29 +900,37 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
     
 
     #--- Streamlit App Trigger ---
-    if google_directions_clicked:
+    if st.session_state["google_directions_clicked"]:
         st.markdown("### 🔑 Google Directions API Key")
-        google_api_key = st.text_input("Type Your API Key Here:", type="password")
+        google_api_key = st.text_input("Type Your API Key Here:", type="password", key="api_input")
         
         if not google_api_key:
             st.warning("⚠️ Please enter your Google Directions API key to proceed.")
         else:
             st.session_state["google_api_key"] = google_api_key
-            api_key = st.session_state.get("google_api_key")
+            
             st.success("Google API key accepted. Generating accurate routes...")
 
-            run_full_export_pipeline(
-                api_key=google_api_key,
-                bus_routes=st.session_state["bus_routes"],
-                van_routes=st.session_state["van_routes"],
-                gdf_nodes=st.session_state["gdf_nodes"],
-                bus_nodes=st.session_state["bus_nodes"],
-                van_nodes=st.session_state["van_nodes"],
-                gdf_bus_stops=st.session_state["gdf_bus_stops"],
-                gdf_van_stops=st.session_state["gdf_van_stops"],
-                gdf_students_sampled=st.session_state["gdf_students_sampled"]
-            )
+            st.write("Session keys available:", list(st.session_state.keys()))
+            
+            required_keys = [
+                "bus_routes", "van_routes", "gdf_nodes", "bus_nodes", "van_nodes",
+                "gdf_bus_stops", "gdf_van_stops", "gdf_students_sampled"
+            ]
+            
+            if all(k in st.session_state for k in required_keys):
+                run_full_export_pipeline(
+                    api_key=google_api_key,
+                    bus_routes=st.session_state["bus_routes"],
+                    van_routes=st.session_state["van_routes"],
+                    gdf_nodes=st.session_state["gdf_nodes"],
+                    bus_nodes=st.session_state["bus_nodes"],
+                    van_nodes=st.session_state["van_nodes"],
+                    gdf_bus_stops=st.session_state["gdf_bus_stops"],
+                    gdf_van_stops=st.session_state["gdf_van_stops"],
+                    gdf_students_sampled=st.session_state["gdf_students_sampled"]
+                )
 
     
-    else:
-        st.warning("⚠️ Please run the routing first to generate route data.")
+            else:
+                st.warning("⚠️ Please run the routing first to generate route data.")

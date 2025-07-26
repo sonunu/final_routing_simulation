@@ -618,122 +618,122 @@ if run_button:
     # Display map
     st.plotly_chart(fig, use_container_width=True)
 
-# === Route Animation Section ===
-st.markdown("## 📽️ Route Animations")
+    # === Route Animation Section ===
+    st.markdown("## 📽️ Route Animations")
 
-col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-with col1:
-    prototype_clicked = st.button("🎞️ Generate Prototype Animation")
-    st.caption("Use if you want a quick demo of how the routes will move along their paths! (shorter loading time but less accurate routes)")
+    with col1:
+        prototype_clicked = st.button("🎞️ Generate Prototype Animation")
+        st.caption("Use if you want a quick demo of how the routes will move along their paths! (shorter loading time but less accurate routes)")
 
-with col2:
-    google_maps_clicked = st.button("🗺️ Generate Google Maps Animation")
-    st.caption("Use if you want a more professional route display of how the routes will operate! (longer loading time + Google Directions and Google Maps API needed)")
+    with col2:
+        google_maps_clicked = st.button("🗺️ Generate Google Maps Animation")
+        st.caption("Use if you want a more professional route display of how the routes will operate! (longer loading time + Google Directions and Google Maps API needed)")
 
-# Run animations based on user click
-if prototype_clicked:
-    st.markdown("### 🎞️ Prototype Route Animation")
-    st.info("Generating animation... Please wait ⏳")
+    # Run animations based on user click
+    if prototype_clicked:
+        st.markdown("### 🎞️ Prototype Route Animation")
+        st.info("Generating animation... Please wait ⏳")
 
-    # Base map
-    fig, ax = ox.plot_graph(G, show=False, close=False, bgcolor='white', node_size=0)
-    cmap = plt.colormaps.get_cmap('tab10')
-    num_vehicles = len(bus_routes) + len(van_routes)
-    colors = [cmap(i % 10) for i in range(num_vehicles)]
+        # Base map
+        fig, ax = ox.plot_graph(G, show=False, close=False, bgcolor='white', node_size=0)
+        cmap = plt.colormaps.get_cmap('tab10')
+        num_vehicles = len(bus_routes) + len(van_routes)
+        colors = [cmap(i % 10) for i in range(num_vehicles)]
 
-    all_vehicle_paths = []
-    vehicle_labels = []
+        all_vehicle_paths = []
+        vehicle_labels = []
 
-    # Plot school
-    x, y = gdf_nodes.loc[depot_node].geometry.xy
-    ax.plot(x[0], y[0], marker='*', color='red', markersize=20, label='Athens High School')
+        # Plot school
+        x, y = gdf_nodes.loc[depot_node].geometry.xy
+        ax.plot(x[0], y[0], marker='*', color='red', markersize=20, label='Athens High School')
 
-    # --- BUS ROUTES ---
-    for vid, route_info in bus_routes.items():
-        color = colors[vid]
-        label = f"Bus {vid+1}"
-        vehicle_labels.append(label)
+        # --- BUS ROUTES ---
+        for vid, route_info in bus_routes.items():
+            color = colors[vid]
+            label = f"Bus {vid+1}"
+            vehicle_labels.append(label)
 
-        route_osmids = [bus_nodes[idx] for idx in route_info["route"]]
-        full_path = []
+            route_osmids = [bus_nodes[idx] for idx in route_info["route"]]
+            full_path = []
 
-        for idx in route_info["route"]:
-            if idx == 0:
-                continue
-            osmid = bus_nodes[idx]
-            point_geom = gdf_nodes.loc[osmid].geometry
-            ax.plot(point_geom.x, point_geom.y, marker='o', color=color, markersize=5, alpha=0.9)
+            for idx in route_info["route"]:
+                if idx == 0:
+                    continue
+                osmid = bus_nodes[idx]
+                point_geom = gdf_nodes.loc[osmid].geometry
+                ax.plot(point_geom.x, point_geom.y, marker='o', color=color, markersize=5, alpha=0.9)
 
-        for u, v in zip(route_osmids[:-1], route_osmids[1:]):
-            try:
-                segment = nx.shortest_path(G, u, v, weight='length')
-                full_path.extend(segment[:-1])
-            except:
-                continue
-        full_path.append(route_osmids[-1])
-        all_vehicle_paths.append(full_path)
+            for u, v in zip(route_osmids[:-1], route_osmids[1:]):
+                try:
+                    segment = nx.shortest_path(G, u, v, weight='length')
+                    full_path.extend(segment[:-1])
+                except:
+                    continue
+            full_path.append(route_osmids[-1])
+            all_vehicle_paths.append(full_path)
 
-    # --- VAN ROUTES ---
-    offset = len(bus_routes)
-    for vid, route_info in van_routes.items():
-        color = colors[offset + vid]
-        label = f"Van {vid+1}"
-        vehicle_labels.append(label)
+        # --- VAN ROUTES ---
+        offset = len(bus_routes)
+        for vid, route_info in van_routes.items():
+            color = colors[offset + vid]
+            label = f"Van {vid+1}"
+            vehicle_labels.append(label)
 
-        route_osmids = [van_nodes[idx] for idx in route_info["route"]]
-        full_path = []
+            route_osmids = [van_nodes[idx] for idx in route_info["route"]]
+            full_path = []
 
-        for idx in route_info["route"]:
-            if idx == 0:
-                continue
-            osmid = van_nodes[idx]
-            point_geom = gdf_nodes.loc[osmid].geometry
-            ax.plot(point_geom.x, point_geom.y, marker='o', color=color, markersize=5, alpha=0.9)
+            for idx in route_info["route"]:
+                if idx == 0:
+                    continue
+                osmid = van_nodes[idx]
+                point_geom = gdf_nodes.loc[osmid].geometry
+                ax.plot(point_geom.x, point_geom.y, marker='o', color=color, markersize=5, alpha=0.9)
 
-        for u, v in zip(route_osmids[:-1], route_osmids[1:]):
-            try:
-                segment = nx.shortest_path(G, u, v, weight='length')
-                full_path.extend(segment[:-1])
-            except:
-                continue
-        full_path.append(route_osmids[-1])
-        all_vehicle_paths.append(full_path)
+            for u, v in zip(route_osmids[:-1], route_osmids[1:]):
+                try:
+                    segment = nx.shortest_path(G, u, v, weight='length')
+                    full_path.extend(segment[:-1])
+                except:
+                    continue
+            full_path.append(route_osmids[-1])
+            all_vehicle_paths.append(full_path)
 
-    # Legend
-    for idx, label in enumerate(vehicle_labels):
-        ax.plot([], [], color=colors[idx], label=label)
-    ax.legend(loc='upper left', fontsize='small')
+        # Legend
+        for idx, label in enumerate(vehicle_labels):
+            ax.plot([], [], color=colors[idx], label=label)
+        ax.legend(loc='upper left', fontsize='small')
 
-    # --- ANIMATION SETUP ---
-    dots, lines, trails = [], [], []
-    for idx, path in enumerate(all_vehicle_paths):
-        color = colors[idx]
-        dot, = ax.plot([], [], marker='o', color=color, markersize=8)
-        line, = ax.plot([], [], color=color, linewidth=2)
-        dots.append(dot)
-        lines.append(line)
-        trails.append(([], []))
-
-    def update(frame):
+        # --- ANIMATION SETUP ---
+        dots, lines, trails = [], [], []
         for idx, path in enumerate(all_vehicle_paths):
-            if frame < len(path):
-                node_id = path[frame]
-            else:
-                node_id = path[-1]
-            point_geom = gdf_nodes.loc[node_id].geometry
-            x, y = point_geom.x, point_geom.y
-            dots[idx].set_data([x], [y])
-            trails[idx][0].append(x)
-            trails[idx][1].append(y)
-            lines[idx].set_data(trails[idx][0], trails[idx][1])
-        return dots + lines
+            color = colors[idx]
+            dot, = ax.plot([], [], marker='o', color=color, markersize=8)
+            line, = ax.plot([], [], color=color, linewidth=2)
+            dots.append(dot)
+            lines.append(line)
+            trails.append(([], []))
 
-    max_frames = max(len(path) for path in all_vehicle_paths)
-    ani = animation.FuncAnimation(fig, update, frames=max_frames, interval=100, blit=False, repeat=False)
+        def update(frame):
+            for idx, path in enumerate(all_vehicle_paths):
+                if frame < len(path):
+                    node_id = path[frame]
+                else:
+                    node_id = path[-1]
+                point_geom = gdf_nodes.loc[node_id].geometry
+                x, y = point_geom.x, point_geom.y
+                dots[idx].set_data([x], [y])
+                trails[idx][0].append(x)
+                trails[idx][1].append(y)
+                lines[idx].set_data(trails[idx][0], trails[idx][1])
+            return dots + lines
 
-    # Convert to HTML5 video
-    html_video = ani.to_html5_video()
+        max_frames = max(len(path) for path in all_vehicle_paths)
+        ani = animation.FuncAnimation(fig, update, frames=max_frames, interval=100, blit=False, repeat=False)
 
-    # Display in Streamlit
-    components.html(html_video, height=600)
+        # Convert to HTML5 video
+        html_video = ani.to_html5_video()
+
+        # Display in Streamlit
+        components.html(html_video, height=600)

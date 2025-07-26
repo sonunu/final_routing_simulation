@@ -748,14 +748,14 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
             return dots + lines
 
         max_frames = max(len(path) for path in all_vehicle_paths)
-        ani = animation.FuncAnimation(fig, update, frames=max_frames, interval=100, blit=False, repeat=False)
+        ani = animation.FuncAnimation(fig, update, frames=max_frames, interval=200, blit=False, repeat=False)
 
         # Save the animation as an MP4 video
-        ani.save("prototype_animation.mp4", writer="ffmpeg")
+        ani.save("prototype_animation.gif", writer="pillow", fps=5)
 
         # Display the MP4 video using Streamlit's built-in player
-        with open("prototype_animation.mp4", "rb") as f:
-            st.video(f.read())
+        with open("prototype_animation.gif", "rb") as f:
+            st.image(f.read())
 
     if google_maps_clicked:
         st.info("Google Maps Animation not implemented yet. Coming soon!")

@@ -757,7 +757,7 @@ if "bus_routes" in st.session_state and "gdf_nodes" in st.session_state:
         with open("prototype_animation.mp4", "rb") as f:
             st.video(f.read())
 
-    if google_clicked:
+    if google_maps_clicked:
         st.info("Google Maps Animation not implemented yet. Coming soon!")
 
 else:
